@@ -1,7 +1,8 @@
 import axios from "axios";
 
-// Vite proxy orqali so'rov ketadi - CORS muammosi yo'q
-const BASE_URL = "/api";
+// Development: Vite proxy orqali /api
+// Production: Render backend URL (VITE_API_URL env dan olinadi)
+const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -43,7 +44,6 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Agar 401 va refresh so'rovi emas va allaqachon retry qilinmagan
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
@@ -51,7 +51,6 @@ api.interceptors.response.use(
       !originalRequest.url.includes("/auth/login")
     ) {
       if (isRefreshing) {
-        // Refresh jarayonida boshqa so'rovlar navbatga qo'shiladi
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
@@ -68,7 +67,6 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem("refreshToken");
 
       if (!refreshToken) {
-        // Refresh token yo'q - login sahifasiga yuborish
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
@@ -77,7 +75,8 @@ api.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post(`/api/auth/refresh`, {
+        // Refresh uchun to'liq URL ishlatamiz
+        const response = await axios.post(`${BASE_URL}/auth/refresh`, {
           refreshToken,
         });
 
@@ -91,10 +90,8 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
         processQueue(null, accessToken);
-
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh ham ishlamadi - login sahifasiga yuborish
         processQueue(refreshError, null);
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");

@@ -8,16 +8,31 @@ const errorHandler = require("./middlewares/errorHandler");
 
 const app = express();
 
+// Allowed origins: local dev + Vercel production
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  // Production Vercel URL - env dan olinadi
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 // Middlewares
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:3000",
-      "http://127.0.0.1:5173",
-      "http://127.0.0.1:5174",
-    ],
+    origin: (origin, callback) => {
+      // Postman / server-to-server (origin yo'q) - ruxsat
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        // Vercel preview URL larini ham qabul qilish
+        /\.vercel\.app$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS: ruxsat yo'q - " + origin));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
